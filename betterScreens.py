@@ -68,7 +68,7 @@ def hydroFandP(seq,FandP):
         #total = 0
         #[total := total + FandP[i] for i in s]
         sumt = []
-        [sumt.append(FandP[i]) for i in s]
+        [sumt.append(FandP.get(i,0)) for i in s]
         total = np.sum(sumt)
         hfp = total / len(s)
         return(hfp)
@@ -106,33 +106,42 @@ def main(argv):
 
 def getProps(inputfile,outputfile):
 
-    df = pd.DataFrame(columns=['seqID','abund','desc','sequence'])
-    with open(inputfile,"r") as fasta_file:
-        for titledesc, sequence in SimpleFastaParser(fasta_file):
-            title,abund,desc = titledesc.split(None)
-            df = df.append({
-                "seqID": title,
-                "abund": abund,
-                "desc": desc,
-                "sequence": sequence
-                }, ignore_index=True)
-            
+    df = pd.read_csv(inputfile,sep=" ",names=['seqID','abund','desc','sequence'])
+#    df = pd.DataFrame(columns=['seqID','abund','desc','sequence'])
+#    with open(inputfile,"r") as fasta_file:
+#        for titledesc, sequence in SimpleFastaParser(fasta_file):
+#            title,abund,desc = titledesc.split(None)
+#            df = df.append({
+#                "seqID": title,
+#                "abund": abund,
+#                "desc": desc,
+#                "sequence": sequence
+#                }, ignore_index=True)
+    
+    print("stored sequences")
+
     # returns the length of the sequence
     df['length'] = aaLength(df['sequence'])
+    print("computed lengths")
     # this function returns a list of dictionaries
     # I can't find a way to assign this as additional columns to the existing df
     # so I am making a new df and concatenating it to the other
     # the order should be intact bby index
     df2 = pd.DataFrame(aaComp(df['sequence']))
     df = pd.concat([df, df2], axis=1, sort=False)
+    print("computed composition")
     # function returns the first letter of the sequence
     df['ntermAA'] = ntermAA(df['sequence'])
+    print("computed ntermAA")
     # function returns the charge based only on D,E K,R
     df['chargeAA'] = chargeAA(df['sequence'])
+    print("computed chargeAA")
     # function returns the charge density ch/len
     df['chDenstity'] = chDenstity(df['chargeAA'],df['length'])
+    print("computed chDensity")
     # function returns the average spacing of positively charged residues
     df['chSpacing'] = chSpacing(df['sequence'])
+    print("computed chSpacing")
     # function returns maximum run of n
     # K
     df['consK'] = consecAA(df['sequence'],'K')
@@ -140,10 +149,15 @@ def getProps(inputfile,outputfile):
     df['consR'] = consecAA(df['sequence'],'R')
     # [KR]
     df['consKR'] = consecAA(df['sequence'],'[KR]')
+    print("computed consecutiveAA")
     # function returns fauchere and pliska average hydrophobicity
     df['hydroFandP'] = hydroFandP(df['sequence'],FandP)
+    print("computed FandP")
     # function returns 
     df['hydroPerc'] = hydroPerc(df['sequence'])
+    print("computed hydroPerc")
+    # returns the length of the sequence
+    df['length'] = aaLength(df['sequence'])
 
     df.to_csv(outputfile, index=False)
 
