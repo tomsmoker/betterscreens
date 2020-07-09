@@ -116,17 +116,19 @@ def hmoment(seq):
             return ("NA","NA")
         
         def seq2scale(seq,scale):
-            return [scale[i] for i in seq]
+            return [scale.get(i,0) for i in seq]
 
         pep = [seq2scale(seq[i:i+window][::-1], scale) for i in range(len(seq)-(window-1))]
         pep = np.array(pep)
 
-        angle = [angle * (np.pi / 180) * i for i in range(1,min(len(pep)+1,window+1))]
+        #angle = [angle * (np.pi / 180) * i for i in range(1,min(len(pep)+1,window+1))]
+        angle = [angle * (np.pi / 180) * i for i in range(1,window+1)]
         vcos = pep * np.cos(angle)
         vsin = pep * np.sin(angle)
         vcos = vcos.sum(axis=1)
         vsin = vsin.sum(axis=1)
-        hm = np.sqrt(vsin * vsin + vcos * vcos) / min(len(pep),window)
+        #hm = np.sqrt(vsin * vsin + vcos * vcos) / min(len(pep),window)
+        hm = np.sqrt(vsin * vsin + vcos * vcos) / window
 
         return max(hm), np.mean(hm)
     return[runhmoment(i) for i in seq]
