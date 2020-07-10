@@ -9,6 +9,8 @@ import sys, getopt
 #from Bio.SeqIO.FastaIO import SimpleFastaParser
 #from Bio.SeqUtils.ProtParam import ProteinAnalysis
 
+import time 
+
 FandP = {"A" : 0.31, "C" : 1.54, "D" : -0.77, "E" : -0.64, "F" : 1.79, "G" : 0, "H" : 0.13, "I" : 1.8, "K" : -0.99,
            "L" : 1.7, "M" : 1.23, "N" : -0.6, "P" : 0.72, "Q" : -0.22, "R" : -1.01, "S" : -0.04, "T" : 0.26, "V" : 1.22,
                     "W" : 2.25, "Y" : 0.96}
@@ -133,6 +135,120 @@ def hmoment(seq):
         return max(hm), np.mean(hm)
     return[runhmoment(i) for i in seq]
 
+def getProps(inputfile,outputfile):
+
+    tick = time.perf_counter() 
+    df = pd.read_csv(inputfile,sep=" ",names=['seqID','abund','desc','sequence'])
+    tock = time.perf_counter() 
+    print("The function read_csv took " + str(round(tock - tick, 5)) + " seconds.")
+    print("-" * 25)
+#    df = pd.DataFrame(columns=['seqID','abund','desc','sequence'])
+#    with open(inputfile,"r") as fasta_file:
+#        for titledesc, sequence in SimpleFastaParser(fasta_file):
+#            title,abund,desc = titledesc.split(None)
+#            df = df.append({
+#                "seqID": title,
+#                "abund": abund,
+#                "desc": desc,
+#                "sequence": sequence
+#                }, ignore_index=True)
+    
+    print("stored sequences")
+
+    # returns the length of the sequence
+    tick = time.perf_counter() 
+    df['length'] = aaLength(df['sequence'])
+    tock = time.perf_counter() 
+    print("The function aaLength took " + str(round(tock - tick, 5)) + " seconds.")
+    print("-" * 25)
+    print("computed lengths")
+    print("-" * 25)
+    # this function returns a list of dictionaries
+    # I can't find a way to assign this as additional columns to the existing df
+    # so I am making a new df and concatenating it to the other
+    # the order should be intact bby index
+    #df2 = pd.DataFrame(aaComp(df['sequence']))
+    tick = time.perf_counter() 
+    df2 = pd.DataFrame(aaCompCount(df['sequence']))
+    tock = time.perf_counter() 
+    print("The function aaCompCount took " + str(round(tock - tick, 5)) + " seconds.")
+    print("-" * 25)
+    df = pd.concat([df, df2], axis=1, sort=False)
+    print("computed composition")
+    print("-" * 25)
+    # function returns the first letter of the sequence
+    tick = time.perf_counter() 
+    df['ntermAA'] = ntermAA(df['sequence'])
+    tock = time.perf_counter() 
+    print("The function nternAA took " + str(round(tock - tick, 5)) + " seconds.")
+    print("-" * 25)
+    print("computed ntermAA")
+    print("-" * 25)
+    # function returns the charge based only on D,E K,R
+    #df['chargeAA'] = chargeAA(df['sequence'])
+    tick = time.perf_counter() 
+    df['chargeAA'] = chargeAACount(df['sequence'])
+    tock = time.perf_counter() 
+    print("The function chargeAACount took " + str(round(tock - tick, 5)) + " seconds.")
+    print("-" * 25)
+    print("computed chargeAA")
+    print("-" * 25)
+    # function returns the charge density ch/len
+    tick = time.perf_counter() 
+    df['chDenstity'] = chDenstity(df['chargeAA'],df['length'])
+    tock = time.perf_counter() 
+    print("The function chDensity took " + str(round(tock - tick, 5)) + " seconds.")
+    print("-" * 25)
+    print("computed chDensity")
+    print("-" * 25)
+    # function returns the average spacing of positively charged residues
+    tick = time.perf_counter() 
+    df['chSpacing'] = chSpacing(df['sequence'])
+    tock = time.perf_counter() 
+    print("The function chSpacing took " + str(round(tock - tick, 5)) + " seconds.")
+    print("-" * 25)
+    print("computed chSpacing")
+    print("-" * 25)
+    # function returns maximum run of n
+    # K
+    tick = time.perf_counter() 
+    df['consK'] = consecAA(df['sequence'],'K')
+    # R
+    df['consR'] = consecAA(df['sequence'],'R')
+    # [KR]
+    df['consKR'] = consecAA(df['sequence'],'[KR]')
+    tock = time.perf_counter() 
+    print("The function consecAA (run three times) took " + str(round(tock - tick, 5)) + " seconds.")
+    print("-" * 25)
+    print("computed consecutiveAA")
+    print("-" * 25)
+    # function returns fauchere and pliska average hydrophobicity
+    tick = time.perf_counter() 
+    df['hydroFandP'] = hydroFandP(df['sequence'],FandP)
+    tock = time.perf_counter() 
+    print("The function hydroFandP took " + str(round(tock - tick, 5)) + " seconds.")
+    print("-" * 25)
+    print("computed FandP")
+    print("-" * 25)
+    # function returns 
+    #df['hydroPerc'] = hydroPerc(df['sequence'])
+    tick = time.perf_counter() 
+    df['hydroPerc'] = hydroPercCount(df['sequence'])
+    tock = time.perf_counter() 
+    print("The function hydroPercCount took " + str(round(tock - tick, 5)) + " seconds.")
+    print("-" * 25)
+    print("computed hydroPerc")
+    print("-" * 25)
+    # returns the average and mean amphipathicity
+    tick = time.perf_counter() 
+    df['amph_max'], df["amph_avg"] = zip(*hmoment(df['sequence']))
+    tock = time.perf_counter() 
+    print("Computing amphipathicity took " + str(round(tock - tick, 5)) + " seconds.")
+    print("-" * 25)
+    print("computed amphipathicity")
+    print("-" * 25)
+
+    df.to_csv(outputfile, index=False)
 
 ## main
 def main(argv):
@@ -153,67 +269,6 @@ def main(argv):
             outputfile = arg
 
     getProps(inputfile,outputfile)
-
-def getProps(inputfile,outputfile):
-
-    df = pd.read_csv(inputfile,sep=" ",names=['seqID','abund','desc','sequence'])
-#    df = pd.DataFrame(columns=['seqID','abund','desc','sequence'])
-#    with open(inputfile,"r") as fasta_file:
-#        for titledesc, sequence in SimpleFastaParser(fasta_file):
-#            title,abund,desc = titledesc.split(None)
-#            df = df.append({
-#                "seqID": title,
-#                "abund": abund,
-#                "desc": desc,
-#                "sequence": sequence
-#                }, ignore_index=True)
-    
-    print("stored sequences")
-
-    # returns the length of the sequence
-    df['length'] = aaLength(df['sequence'])
-    print("computed lengths")
-    # this function returns a list of dictionaries
-    # I can't find a way to assign this as additional columns to the existing df
-    # so I am making a new df and concatenating it to the other
-    # the order should be intact bby index
-    #df2 = pd.DataFrame(aaComp(df['sequence']))
-    df2 = pd.DataFrame(aaCompCount(df['sequence']))
-    df = pd.concat([df, df2], axis=1, sort=False)
-    print("computed composition")
-    # function returns the first letter of the sequence
-    df['ntermAA'] = ntermAA(df['sequence'])
-    print("computed ntermAA")
-    # function returns the charge based only on D,E K,R
-    #df['chargeAA'] = chargeAA(df['sequence'])
-    df['chargeAA'] = chargeAACount(df['sequence'])
-    print("computed chargeAA")
-    # function returns the charge density ch/len
-    df['chDenstity'] = chDenstity(df['chargeAA'],df['length'])
-    print("computed chDensity")
-    # function returns the average spacing of positively charged residues
-    df['chSpacing'] = chSpacing(df['sequence'])
-    print("computed chSpacing")
-    # function returns maximum run of n
-    # K
-    df['consK'] = consecAA(df['sequence'],'K')
-    # R
-    df['consR'] = consecAA(df['sequence'],'R')
-    # [KR]
-    df['consKR'] = consecAA(df['sequence'],'[KR]')
-    print("computed consecutiveAA")
-    # function returns fauchere and pliska average hydrophobicity
-    df['hydroFandP'] = hydroFandP(df['sequence'],FandP)
-    print("computed FandP")
-    # function returns 
-    #df['hydroPerc'] = hydroPerc(df['sequence'])
-    df['hydroPerc'] = hydroPercCount(df['sequence'])
-    print("computed hydroPerc")
-    # returns the average and mean amphipathicity
-    df['amph_max'], df["amph_avg"] = zip(*hmoment(df['sequence']))
-    print("computed amphipathicity")
-
-    df.to_csv(outputfile, index=False)
 
 if __name__ == "__main__":
    main(sys.argv[1:])
